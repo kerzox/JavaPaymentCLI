@@ -38,44 +38,44 @@ public class Server implements Runnable {
         @Override
         public void run() {
             ID++;
-
             NetworkUtil.write(client, "id", ID);
+            this.server.getConnectedClients().put(ID, this.client);
 
-            while (!closed) {
+            while (!client.isClosed()) {
                 List<Object> data = NetworkUtil.read(this.client);
                 if (data == null) continue;
                 if (data.isEmpty()) return;
                 switch (String.valueOf(data.get(0))) {
                     case "payment" -> {
-                        boolean completed = false;
-                        for (TempData clientData : this.server.storage.clientList) {
-                            if (clientData.getId() == Integer.parseInt(String.valueOf(data.get(3)))) {
-                                clientData.addMoney(Double.parseDouble(String.valueOf(data.get(2))));
-                                completed = true;
-                            }
-                            for (Socket c : server.getConnectedClients()) {
-                                NetworkUtil.write(c, "refresh", clientData);
-                            }
+                        double m = Double.parseDouble(String.valueOf(data.get(2)));
+                        int sender = Integer.parseInt(String.valueOf(data.get(1)));
+                        int recipient = Integer.parseInt(String.valueOf(data.get(3)));
+
+                        TempData recipientClient = this.server.storage.clientList.get(recipient);
+                        TempData senderClient = this.server.storage.clientList.get(sender);
+
+                        if (recipientClient == null) {
+                            NetworkUtil.write(this.server.getClientSocketFromData(senderClient), "msg", "The account you have entered doesn't exist");
+                            continue;
                         }
-                        for (TempData clientData : this.server.storage.clientList) {
-                            if (clientData.getId() == Integer.parseInt(String.valueOf(data.get(1)))) {
-                                if (completed) {
-                                    clientData.deductMoney(Double.parseDouble(String.valueOf(data.get(2))));
-                                }
-                            }
-                            for (Socket c : server.getConnectedClients()) {
-                                NetworkUtil.write(c, "refresh", clientData);
-                            }
-                        }
+
+                        recipientClient.addMoney(m);
+                        senderClient.deductMoney(m);
+
+                        NetworkUtil.write(this.server.getClientSocketFromData(recipientClient), "refresh", recipientClient);
+                        NetworkUtil.write(this.server.getClientSocketFromData(recipientClient), "msg", "You have received $" + m + " from " + senderClient.getName());
+                        NetworkUtil.write(this.server.getClientSocketFromData(senderClient), "refresh", senderClient);
+                        NetworkUtil.write(this.server.getClientSocketFromData(senderClient), "msg", "Payment has been sent! $" + m + " has been deducted.");
+
                     }
                     case "account" -> {
                         switch (String.valueOf(data.get(1))) {
                             case "creation" -> {
                                 this.server.storage.addClient((TempData) data.get(2));
-                                System.out.println("Account created on server");
+                                System.out.println("Account created: " + ((TempData) data.get(2)).getName());
                             }
                             case "exist" -> {
-                                for (TempData clientData : this.server.storage.clientList) {
+                                for (TempData clientData : this.server.storage.clientList.values()) {
                                     if (clientData.getId() == (int) data.get(2)) {
                                         NetworkUtil.write(client, "exist", true);
                                         continue;
@@ -87,13 +87,15 @@ public class Server implements Runnable {
                     }
                 }
             }
-        }
 
+            System.out.printf("Client [%s] has been disconnected.\n", this.client.getInetAddress());
+
+        }
     }
 
     public static class ServerThread {
 
-        private List<Socket> connectedClients = new ArrayList<>();
+        private Map<Integer, Socket> connectedClients = new HashMap<>();
         private ServerSocket server;
         private ServerStorage storage = new ServerStorage();
 
@@ -105,11 +107,15 @@ public class Server implements Runnable {
             try {
                 Initialise(PORT);
             } catch (Exception e) {
-
+                System.out.println(e.getMessage());
             }
         }
 
-        public List<Socket> getConnectedClients() {
+        public Socket getClientSocketFromData(TempData data) {
+            return this.connectedClients.get(data.getId());
+        }
+
+        public Map<Integer, Socket> getConnectedClients() {
             return connectedClients;
         }
 
@@ -121,20 +127,8 @@ public class Server implements Runnable {
                 try {
                     Socket connectingClient = server.accept();
                     if (connectingClient == null) return;
-                    this.connectedClients.add(connectingClient);
-//                    SocketAddress addr = connectingClient.getRemoteSocketAddress();
-//                    if (addr instanceof InetSocketAddress iNetAddr) {
-//                        if (iNetAddr.getAddress() instanceof Inet4Address ipv4) {
-//                            this.connectedClients.put(ipv4, connectingClient);
-//                            System.out.printf("New client connected! %s", ipv4);
-//                        }
-//                        else if (iNetAddr.getAddress() instanceof Inet6Address ipv6) {
-//                            this.connectedClients.put(ipv6, connectingClient);
-//                            System.out.printf("New client connected! %s", ipv6);
-//                        }
-//                    }
-
                     ClientThread clientThread = new ClientThread(this, connectingClient);
+                    System.out.println("Client connected to server");
 
                 } catch (IOException e) {
                     System.out.println("I/O error: " + e);

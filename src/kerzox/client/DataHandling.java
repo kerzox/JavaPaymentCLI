@@ -21,6 +21,7 @@ public class DataHandling {
     public void doArgumentHandler(Scanner scn) throws ArgumentException {
         String[] args = scn.nextLine().split(" ");
         switch (args[0].toLowerCase()) {
+            case "exit" -> this.client.close();
             case "account" -> {
                 if (args.length <= 1) throw new ArgumentException("Missing arguments.");
                 switch (args[1].toLowerCase()) {
@@ -31,7 +32,7 @@ public class DataHandling {
                         NetworkUtil.write(client.getServer(), "debug");
                     }
                     case "balance" -> {
-                        System.out.printf("Current balance: %.2f", this.client.getData().getBank());
+                        System.out.printf("Current balance: %.2f\n", this.client.getData().getBank());
                     }
                     case "information" -> System.out.println(client.getData().getName() + "\n" + client.getData().getId());
                     default -> throw new ArgumentException("Invalid Argument. %s", String.valueOf(args[2].toLowerCase()));
@@ -39,17 +40,16 @@ public class DataHandling {
             }
             case "pay" -> {
                 if (args.length <= 3) throw new ArgumentException("Missing arguments.");
-                if (!args[1].equalsIgnoreCase("send"))
-                    throw new ArgumentException("%s is not a valid argument", args[1]);
                 if (!ParsingUtil.isDouble(args[2]))
                     throw new ArgumentException("%s is not a number", args[2]);
                 else if (!ParsingUtil.IsInt(args[3]))
                     throw new ArgumentException("%s is not a valid ID, should be a number", args[3]);
-                Double money = Double.parseDouble(args[2]);
+                double money = Double.parseDouble(args[2]);
                 if (this.client.getData().getBank() < money) throw new ArgumentException("You don't have enough money to complete the transfer.");
+                if (this.client.getData().getId() == Integer.parseInt(args[3])) throw new ArgumentException("You can't pay yourself.");
                 NetworkUtil.write(this.client.getServer(), "payment", this.client.getData().getId(), args[2], args[3]);
             }
-            default -> throw new ArgumentException("Unrecognized command %s, please input a valid command.", String.valueOf(args[0].toLowerCase()));
+            default -> throw new ArgumentException("Unrecognized command [%s], please input a valid command.", String.valueOf(args[0].toLowerCase()));
         }
     }
 
@@ -66,7 +66,7 @@ public class DataHandling {
         String s = "Client Commands.";
         s += "\nExit | Close the program";
         s += "\nAccount : create {name}, delete {id}, balance";
-        s += "\nPay : send {$} {account}";
+        s += "\nPay : {$} {account}";
         return s;
     }
 
@@ -86,13 +86,15 @@ public class DataHandling {
         @Override
         public void run() {
 
-            while(true) {
+            while(!this.client.getServer().isClosed()) {
                 try {
                     doArgumentHandler();
                 } catch (ArgumentException e) {
 
                 }
             }
+            System.out.println("Server has closed.");
+            this.client.close();
 
         }
 
@@ -110,6 +112,9 @@ public class DataHandling {
                 }
                 case "refresh" -> {
                     this.client.refreshClientData((TempData) data.get(1));
+                }
+                case "msg" -> {
+                    System.out.println(String.valueOf(data.get(1)));
                 }
             }
         }

@@ -3,29 +3,26 @@ package kerzox.server;
 import kerzox.client.Client;
 import kerzox.client.TempData;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ServerStorage {
 
-    Set<TempData> clientList = new HashSet<>();
+    Map<Integer, TempData> clientList = new HashMap<>();
 
     public ServerStorage() {
 
     }
 
-    public Set<TempData> getClientList() {
+    public Map<Integer, TempData> getClientList() {
         return clientList;
     }
 
     public void addClient(TempData client) {
-        this.clientList.add(client);
+        this.clientList.put(client.getId(), client);
     }
 
-    public void removeClient(TempData client) {
-        this.clientList.remove(client);
+    public void removeClient(int id) {
+        this.clientList.remove(id);
     }
 
 }

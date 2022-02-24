@@ -1,5 +1,7 @@
 package kerzox;
 
+import kerzox.client.TempData;
+
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -28,8 +30,17 @@ public class NetworkUtil {
             Object ret = in.readObject();
             return (List<Object>) ret;
         } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+            closeSocket(socket);
         }
         return null;
     }
+
+    private static void closeSocket(Socket socket) {
+        try {
+            socket.close();
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
 }
