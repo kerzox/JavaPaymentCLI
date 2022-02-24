@@ -8,8 +8,7 @@ import java.io.*;
 import java.util.List;
 import java.util.Scanner;
 
-import static kerzox.common.NetworkUtil.Header.ACCOUNT;
-import static kerzox.common.NetworkUtil.Header.PAYMENT;
+import static kerzox.common.NetworkUtil.Header.*;
 
 public class DataHandling {
 
@@ -37,12 +36,12 @@ public class DataHandling {
             }
             case "pay" -> {
                 if (args.length <= 2) throw new ArgumentException("Missing arguments.");
-                if (!ParsingUtil.isDouble(args[2])) throw new ArgumentException("%s is not a number", args[2]);
-                else if (!ParsingUtil.IsInt(args[3])) throw new ArgumentException("%s is not a valid ID, should be a integer", args[3]);
-                double money = Double.parseDouble(args[2]);
+                if (!ParsingUtil.isDouble(args[1])) throw new ArgumentException("%s is not a number", args[1]);
+                else if (!ParsingUtil.IsInt(args[2])) throw new ArgumentException("%s is not a valid ID, should be a integer", args[2]);
+                double money = Double.parseDouble(args[1]);
                 if (this.client.getData().getBank() < money) throw new ArgumentException("You don't have enough money to complete the transfer.");
-                if (this.client.getData().getId() == Integer.parseInt(args[3])) throw new ArgumentException("You can't pay yourself.");
-                NetworkUtil.write(this.client.getServer(), PAYMENT, this.client.getData().getId(), args[2], args[3]);
+                if (this.client.getData().getId() == Integer.parseInt(args[2])) throw new ArgumentException("You can't pay yourself.");
+                NetworkUtil.write(this.client.getServer(), PAYMENT, this.client.getData().getId(), args[1], args[2]);
             }
             default -> throw new ArgumentException("Unrecognized command [%s], please input a valid command.", args[0].toLowerCase());
         }
@@ -95,7 +94,7 @@ public class DataHandling {
             if (data == null) return;
             if (data.isEmpty()) return;
 
-            switch (NetworkUtil.Header.valueOf((String) data.get(0))) {
+            switch ((NetworkUtil.Header)data.get(0)) {
                 case ID -> client.setID(Integer.parseInt(String.valueOf(data.get(1))));
                 case REFRESH -> this.client.refreshClientData((TempData) data.get(1));
                 case MSG -> System.out.println(data.get(1));

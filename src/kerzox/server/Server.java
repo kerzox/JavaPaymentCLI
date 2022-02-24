@@ -38,14 +38,14 @@ public class Server implements Runnable {
         @Override
         public void run() {
             ID++;
-            NetworkUtil.write(client, "id", ID);
+            NetworkUtil.write(client, NetworkUtil.Header.ID, ID);
             this.server.getConnectedClients().put(ID, this.client);
 
             while (!client.isClosed()) {
                 List<Object> data = NetworkUtil.read(this.client);
                 if (data == null) continue;
                 if (data.isEmpty()) return;
-                switch (NetworkUtil.Header.valueOf((String) data.get(0))) {
+                switch ((NetworkUtil.Header)data.get(0)) {
                     case PAYMENT -> {
                         double m = Double.parseDouble(String.valueOf(data.get(2)));
                         int sender = Integer.parseInt(String.valueOf(data.get(1)));
