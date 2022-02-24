@@ -2,6 +2,14 @@ package kerzox;
 
 public class ParsingUtil {
 
+    public static String TryParseString(Object value, String defV) {
+        try {
+            return String.valueOf(value);
+        } catch (NumberFormatException e) {
+            return defV;
+        }
+    }
+
     public static int TryParseInt(String value, int defV) {
         try {
             return Integer.parseInt(value);

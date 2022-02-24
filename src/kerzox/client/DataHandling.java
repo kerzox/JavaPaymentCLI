@@ -1,58 +1,61 @@
 package kerzox.client;
 
+import kerzox.NetworkUtil;
 import kerzox.ParsingUtil;
 
 import java.io.*;
-import java.net.Socket;
+import java.util.List;
 import java.util.Scanner;
 
 public class DataHandling {
 
-    private DataInputStream  serverInput;
-    private DataOutputStream clientOutput;
+    private Client client;
     private Thread sm;
 
-    public DataHandling(Socket socket) throws IOException {
-        this.serverInput = new DataInputStream(socket.getInputStream());
-        this.clientOutput = new DataOutputStream(socket.getOutputStream());
+    public DataHandling(Client client) throws IOException {
+        this.client = client;
         printCommands();
-        try {
-            doArgumentHandler(new Scanner(System.in));
-        } catch (ArgumentException e) {
-            System.out.println(e.getMessage());
-        }
-        sm = ServerMessages.handle(serverInput);
+        sm = ServerMessages.handle(client);
     }
 
-    private void doArgumentHandler(Scanner scn) throws ArgumentException {
-        String line = scn.nextLine();
-        String[] args = line.split(" ");
+    public void doArgumentHandler(Scanner scn) throws ArgumentException {
+        String[] args = scn.nextLine().split(" ");
         switch (args[0].toLowerCase()) {
             case "account" -> {
-                if (args.length <= 2) throw new ArgumentException("Missing arguments.");
+                if (args.length <= 1) throw new ArgumentException("Missing arguments.");
                 switch (args[1].toLowerCase()) {
-                    case "create" -> attemptAccountCreation();
-                    case "delete" -> attemptAccountDeletion();
+                    case "create" -> {
+                        attemptAccountCreation(args[2].toLowerCase());
+                    }
+                    case "delete" -> {
+                        NetworkUtil.write(client.getServer(), "debug");
+                    }
+                    case "balance" -> {
+                        System.out.printf("Current balance: %.2f", this.client.getData().getBank());
+                    }
+                    case "information" -> System.out.println(client.getData().getName() + "\n" + client.getData().getId());
+                    default -> throw new ArgumentException("Invalid Argument. %s", String.valueOf(args[2].toLowerCase()));
                 }
             }
             case "pay" -> {
                 if (args.length <= 3) throw new ArgumentException("Missing arguments.");
-                if (!args[1].equalsIgnoreCase("send")) throw new ArgumentException(String.format("%s is not a valid argument", args[1]));
-                if (!ParsingUtil.isDouble(args[2])) throw new ArgumentException(String.format("%s is not a number", args[2]));
-                else if (!ParsingUtil.isDouble(args[3])) throw new ArgumentException(String.format("%s is not a number", args[3]));
+                if (!args[1].equalsIgnoreCase("send"))
+                    throw new ArgumentException("%s is not a valid argument", args[1]);
+                if (!ParsingUtil.isDouble(args[2]))
+                    throw new ArgumentException("%s is not a number", args[2]);
+                else if (!ParsingUtil.IsInt(args[3]))
+                    throw new ArgumentException("%s is not a valid ID, should be a number", args[3]);
                 Double money = Double.parseDouble(args[2]);
-                System.out.printf("Payment was successful.\n%.2f was deducted from your account.%n", money);
+                if (this.client.getData().getBank() < money) throw new ArgumentException("You don't have enough money to complete the transfer.");
+                NetworkUtil.write(this.client.getServer(), "payment", this.client.getData().getId(), args[2], args[3]);
             }
-            default -> throw new ArgumentException(String.format("Unknown Command: %s", args[0]));
+            default -> throw new ArgumentException("Unrecognized command %s, please input a valid command.", String.valueOf(args[0].toLowerCase()));
         }
     }
 
-    private void attemptAccountDeletion() {
-
-    }
-
-    private void attemptAccountCreation() {
-
+    private void attemptAccountCreation(String name) {
+        this.client.createClient(new TempData(name, 1500, this.client.getID()));
+        NetworkUtil.write(this.client.getServer(), "account", "creation", this.client.getData());
     }
 
     public static void printCommands() {
@@ -61,22 +64,23 @@ public class DataHandling {
 
     public static String Commands() {
         String s = "Client Commands.";
-        s += "\nAccount | create {name}, delete {id}";
-        s += "\nPay | send {$} {account}";
+        s += "\nExit | Close the program";
+        s += "\nAccount : create {name}, delete {id}, balance";
+        s += "\nPay : send {$} {account}";
         return s;
     }
 
     public static class ServerMessages extends Thread {
 
-        private DataInputStream inputStream;
+        private Client client;
 
-        private ServerMessages(DataInputStream input) {
-            this.inputStream = input;
+        private ServerMessages(Client client) {
+            this.client = client;
             this.start();
         }
 
-        public static Thread handle(DataInputStream input) {
-            return new ServerMessages(input);
+        public static Thread handle(Client client) {
+            return new ServerMessages(client);
         }
 
         @Override
@@ -84,52 +88,31 @@ public class DataHandling {
 
             while(true) {
                 try {
-                    String msg = inputStream.readUTF();
-                    System.out.println(msg);
-                } catch (IOException e) {
+                    doArgumentHandler();
+                } catch (ArgumentException e) {
 
                 }
             }
 
         }
+
+        public void doArgumentHandler() throws ArgumentException {
+            List<Object> data = NetworkUtil.read(this.client.getServer());
+            if (data == null) return;
+            if (data.isEmpty()) return;
+
+            switch (String.valueOf(data.get(0))) {
+                case "id" -> client.setID(Integer.parseInt(String.valueOf(data.get(1))));
+                case "exist" -> {
+                    if ((boolean)data.get(1)) {
+
+                    }
+                }
+                case "refresh" -> {
+                    this.client.refreshClientData((TempData) data.get(1));
+                }
+            }
+        }
     }
-
-    public DataOutputStream getClientOutput() {
-        return clientOutput;
-    }
-
-    public DataInputStream getServerInput() {
-        return serverInput;
-    }
-
-    //    public static class SendMessages extends Thread {
-//
-//        private DataOutputStream outputStream;
-//
-//        private SendMessages(DataOutputStream outputStream) {
-//            this.start();
-//        }
-//
-//        public static Thread handle(DataOutputStream outputStream) {
-//            return new SendMessages(outputStream);
-//        }
-//
-//        @Override
-//        public void run() {
-//
-//            BufferedReader console = new BufferedReader(new InputStreamReader(System.in));
-//
-//            while(true) {
-//                try {
-//                    console.
-//                } catch (IOException e) {
-//
-//                }
-//            }
-//
-//        }
-//    }
-
-
 
 }

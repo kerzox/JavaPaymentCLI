@@ -4,37 +4,76 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Scanner;
 
-public class Client implements Runnable {
+public class Client implements Runnable, Serializable {
 
     private Socket socket;
     private DataHandling handler;
+    private boolean closed = false;
+    private TempData clientStuff;
+    private int ID;
 
     @Override
     public void run() {
+        if (socket == null) Initialise();
+        while(!isClosed()) runClient();
+        System.out.println("You have been disconnected");
+    }
+
+    private void runClient() {
         try {
-            Initialise(InetAddress.getLocalHost(), 2555);
-        } catch (IOException e) {
-            e.printStackTrace();
+            this.handler.doArgumentHandler(new Scanner(System.in));
+        } catch (ArgumentException e) {
+            System.out.println(e.getMessage());
         }
     }
-    public void Initialise(InetAddress Address, int port) throws IOException {
-        this.socket = new Socket(InetAddress.getLocalHost(), port);
-        System.out.println("Connected to server");
-        this.handler = new DataHandling(this.socket);
+
+    public void Initialise() {
+        try {
+            this.socket = new Socket(InetAddress.getLocalHost(), 2555);
+            System.out.println("Connected to server");
+            this.handler = new DataHandling(this);
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
     }
 
-    public DataInputStream getServerInput() {
-        return handler != null ? handler.getServerInput() : null;
-    }
-
-    public DataOutputStream getClientOutput() {
-        return handler != null ? handler.getClientOutput() : null;
-    }
-
-    public Socket getSocket() {
+    public Socket getServer() {
         return socket;
     }
 
+    public void close() {
+        this.closed = true;
+        try {
+            this.socket.close();
+        } catch (IOException e) {
+            System.out.println(e);
+        }
+    }
 
+    public boolean isClosed() {
+        return closed;
+    }
+
+    public TempData getData() {
+        return clientStuff;
+    }
+
+    public void refreshClientData(TempData clientStuff) {
+        if (clientStuff.getId() != this.ID) return;
+        this.clientStuff = clientStuff;
+    }
+
+    public void createClient(TempData clientStuff) {
+        this.clientStuff = clientStuff;
+    }
+
+    public void setID(int ID) {
+        this.ID = ID;
+    }
+
+    public int getID() {
+        return ID;
+    }
 }
