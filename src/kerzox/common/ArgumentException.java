@@ -1,4 +1,4 @@
-package kerzox.client;
+package kerzox.common;
 
 import java.util.Formatter;
 

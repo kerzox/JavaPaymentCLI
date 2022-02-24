@@ -1,21 +1,24 @@
 package kerzox.client;
 
-import kerzox.NetworkUtil;
-import kerzox.ParsingUtil;
+import kerzox.common.NetworkUtil;
+import kerzox.common.ParsingUtil;
+import kerzox.common.ArgumentException;
 
 import java.io.*;
 import java.util.List;
 import java.util.Scanner;
 
+import static kerzox.common.NetworkUtil.Header.ACCOUNT;
+import static kerzox.common.NetworkUtil.Header.PAYMENT;
+
 public class DataHandling {
 
-    private Client client;
-    private Thread sm;
+    private final Client client;
 
     public DataHandling(Client client) throws IOException {
         this.client = client;
         printCommands();
-        sm = ServerMessages.handle(client);
+        ServerMessages.hook(client);
     }
 
     public void doArgumentHandler(Scanner scn) throws ArgumentException {
@@ -25,37 +28,29 @@ public class DataHandling {
             case "account" -> {
                 if (args.length <= 1) throw new ArgumentException("Missing arguments.");
                 switch (args[1].toLowerCase()) {
-                    case "create" -> {
-                        attemptAccountCreation(args[2].toLowerCase());
-                    }
-                    case "delete" -> {
-                        NetworkUtil.write(client.getServer(), "debug");
-                    }
-                    case "balance" -> {
-                        System.out.printf("Current balance: %.2f\n", this.client.getData().getBank());
-                    }
+                    case "create" -> attemptAccountCreation(args[2].toLowerCase());
+                    case "delete" -> { }
+                    case "balance" -> System.out.printf("Current balance: %.2f\n", this.client.getData().getBank());
                     case "information" -> System.out.println(client.getData().getName() + "\n" + client.getData().getId());
-                    default -> throw new ArgumentException("Invalid Argument. %s", String.valueOf(args[2].toLowerCase()));
+                    default -> throw new ArgumentException("Invalid Argument. %s", args[2].toLowerCase());
                 }
             }
             case "pay" -> {
-                if (args.length <= 3) throw new ArgumentException("Missing arguments.");
-                if (!ParsingUtil.isDouble(args[2]))
-                    throw new ArgumentException("%s is not a number", args[2]);
-                else if (!ParsingUtil.IsInt(args[3]))
-                    throw new ArgumentException("%s is not a valid ID, should be a number", args[3]);
+                if (args.length <= 2) throw new ArgumentException("Missing arguments.");
+                if (!ParsingUtil.isDouble(args[2])) throw new ArgumentException("%s is not a number", args[2]);
+                else if (!ParsingUtil.IsInt(args[3])) throw new ArgumentException("%s is not a valid ID, should be a integer", args[3]);
                 double money = Double.parseDouble(args[2]);
                 if (this.client.getData().getBank() < money) throw new ArgumentException("You don't have enough money to complete the transfer.");
                 if (this.client.getData().getId() == Integer.parseInt(args[3])) throw new ArgumentException("You can't pay yourself.");
-                NetworkUtil.write(this.client.getServer(), "payment", this.client.getData().getId(), args[2], args[3]);
+                NetworkUtil.write(this.client.getServer(), PAYMENT, this.client.getData().getId(), args[2], args[3]);
             }
-            default -> throw new ArgumentException("Unrecognized command [%s], please input a valid command.", String.valueOf(args[0].toLowerCase()));
+            default -> throw new ArgumentException("Unrecognized command [%s], please input a valid command.", args[0].toLowerCase());
         }
     }
 
     private void attemptAccountCreation(String name) {
         this.client.createClient(new TempData(name, 1500, this.client.getID()));
-        NetworkUtil.write(this.client.getServer(), "account", "creation", this.client.getData());
+        NetworkUtil.write(this.client.getServer(), ACCOUNT, "creation", this.client.getData());
     }
 
     public static void printCommands() {
@@ -72,30 +67,27 @@ public class DataHandling {
 
     public static class ServerMessages extends Thread {
 
-        private Client client;
+        private final Client client;
 
         private ServerMessages(Client client) {
             this.client = client;
             this.start();
         }
 
-        public static Thread handle(Client client) {
-            return new ServerMessages(client);
+        public static void hook(Client client) {
+            new ServerMessages(client);
         }
 
         @Override
         public void run() {
-
             while(!this.client.getServer().isClosed()) {
                 try {
                     doArgumentHandler();
                 } catch (ArgumentException e) {
-
+                    System.out.println(e.getMessage());
                 }
             }
-            System.out.println("Server has closed.");
             this.client.close();
-
         }
 
         public void doArgumentHandler() throws ArgumentException {
@@ -103,19 +95,10 @@ public class DataHandling {
             if (data == null) return;
             if (data.isEmpty()) return;
 
-            switch (String.valueOf(data.get(0))) {
-                case "id" -> client.setID(Integer.parseInt(String.valueOf(data.get(1))));
-                case "exist" -> {
-                    if ((boolean)data.get(1)) {
-
-                    }
-                }
-                case "refresh" -> {
-                    this.client.refreshClientData((TempData) data.get(1));
-                }
-                case "msg" -> {
-                    System.out.println(String.valueOf(data.get(1)));
-                }
+            switch (NetworkUtil.Header.valueOf((String) data.get(0))) {
+                case ID -> client.setID(Integer.parseInt(String.valueOf(data.get(1))));
+                case REFRESH -> this.client.refreshClientData((TempData) data.get(1));
+                case MSG -> System.out.println(data.get(1));
             }
         }
     }

@@ -1,4 +1,4 @@
-package kerzox;
+package kerzox.common;
 
 public class ParsingUtil {
 

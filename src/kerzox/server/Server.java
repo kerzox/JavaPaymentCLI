@@ -1,16 +1,16 @@
 package kerzox.server;
 
-import kerzox.NetworkUtil;
-import kerzox.client.ArgumentException;
-import kerzox.client.Client;
+import kerzox.common.NetworkUtil;
 import kerzox.client.TempData;
 
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static kerzox.common.NetworkUtil.Header.MSG;
+import static kerzox.common.NetworkUtil.Header.REFRESH;
 
 public class Server implements Runnable {
 
@@ -45,8 +45,8 @@ public class Server implements Runnable {
                 List<Object> data = NetworkUtil.read(this.client);
                 if (data == null) continue;
                 if (data.isEmpty()) return;
-                switch (String.valueOf(data.get(0))) {
-                    case "payment" -> {
+                switch (NetworkUtil.Header.valueOf((String) data.get(0))) {
+                    case PAYMENT -> {
                         double m = Double.parseDouble(String.valueOf(data.get(2)));
                         int sender = Integer.parseInt(String.valueOf(data.get(1)));
                         int recipient = Integer.parseInt(String.valueOf(data.get(3)));
@@ -55,33 +55,24 @@ public class Server implements Runnable {
                         TempData senderClient = this.server.storage.clientList.get(sender);
 
                         if (recipientClient == null) {
-                            NetworkUtil.write(this.server.getClientSocketFromData(senderClient), "msg", "The account you have entered doesn't exist");
+                            NetworkUtil.write(this.server.getClientSocketFromData(senderClient), MSG, "The account you have entered doesn't exist");
                             continue;
                         }
 
                         recipientClient.addMoney(m);
                         senderClient.deductMoney(m);
 
-                        NetworkUtil.write(this.server.getClientSocketFromData(recipientClient), "refresh", recipientClient);
-                        NetworkUtil.write(this.server.getClientSocketFromData(recipientClient), "msg", "You have received $" + m + " from " + senderClient.getName());
-                        NetworkUtil.write(this.server.getClientSocketFromData(senderClient), "refresh", senderClient);
-                        NetworkUtil.write(this.server.getClientSocketFromData(senderClient), "msg", "Payment has been sent! $" + m + " has been deducted.");
+                        NetworkUtil.write(this.server.getClientSocketFromData(recipientClient), REFRESH, recipientClient);
+                        NetworkUtil.write(this.server.getClientSocketFromData(recipientClient), MSG, "You have received $" + m + " from " + senderClient.getName());
+                        NetworkUtil.write(this.server.getClientSocketFromData(senderClient), REFRESH, senderClient);
+                        NetworkUtil.write(this.server.getClientSocketFromData(senderClient), MSG, "Payment has been sent! $" + m + " has been deducted.");
 
                     }
-                    case "account" -> {
+                    case ACCOUNT -> {
                         switch (String.valueOf(data.get(1))) {
                             case "creation" -> {
                                 this.server.storage.addClient((TempData) data.get(2));
                                 System.out.println("Account created: " + ((TempData) data.get(2)).getName());
-                            }
-                            case "exist" -> {
-                                for (TempData clientData : this.server.storage.clientList.values()) {
-                                    if (clientData.getId() == (int) data.get(2)) {
-                                        NetworkUtil.write(client, "exist", true);
-                                        continue;
-                                    }
-                                    NetworkUtil.write(client, "exist", false);
-                                }
                             }
                         }
                     }

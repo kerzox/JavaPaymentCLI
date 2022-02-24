@@ -1,4 +1,4 @@
-package kerzox;
+package kerzox.common;
 
 import kerzox.client.TempData;
 
@@ -9,6 +9,19 @@ import java.util.Arrays;
 import java.util.List;
 
 public class NetworkUtil {
+
+    public enum Header {
+        PAYMENT,
+        ACCOUNT,
+        MSG,
+        ID,
+        REFRESH;
+
+        @Override
+        public String toString() {
+            return super.toString().toLowerCase();
+        }
+    }
 
     public static void write(Socket socket, Object... data) {
         try {

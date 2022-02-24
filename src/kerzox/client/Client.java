@@ -1,9 +1,10 @@
 package kerzox.client;
 
+import kerzox.common.ArgumentException;
+
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.Scanner;
 
 public class Client implements Runnable, Serializable {
@@ -44,9 +45,9 @@ public class Client implements Runnable, Serializable {
     }
 
     public void close() {
-        this.closed = true;
         try {
             this.socket.close();
+            this.closed = true;
         } catch (IOException e) {
             System.out.println(e);
         }
